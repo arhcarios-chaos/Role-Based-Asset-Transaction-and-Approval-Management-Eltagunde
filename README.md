@@ -31,12 +31,6 @@ Every sensitive action (approve, reject, release, return, role change, etc.) is 
 - **Admin reporting:** equipment/request breakdowns and an overdue-items view.
 - **Zero build step:** plain HTML/CSS/JS — deploys straight to GitHub Pages.
 
-## 🖥️ Screenshots
-
-| My Board | Lab Asset Management | Equipment Loan Workflow |
-|---|---|---|
-| ![My First Board](My%20First%20Board.jpg) | ![Lab Asset Management](Lab%20Asset%20Management.jpg) | ![Equipment Loan Workflow](Equipment%20Loan%20Workflow.jpg) |
-
 ## 🔐 Role Permissions
 
 | Function | Administrator | Laboratory Staff | Requester / Viewer |
