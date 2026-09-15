@@ -158,7 +158,11 @@ This means even a user who bypasses the front end and calls the Supabase API dir
 
 ## 🧭 Diagrams
 
-Entity-relationship, use-case, and workflow diagrams are in `docs/*.mermaid`. View them with the [Mermaid Live Editor](https://mermaid.live), GitHub's built-in Markdown rendering, or VS Code's Markdown preview (with the Mermaid extension).
+The system's Entity-Relationship Diagram (ERD), Use Case Diagram, and Workflow Diagram are provided below.
+
+* **Entity-Relationship Diagram (ERD):** `Flowchart/ERD.jpg`
+* **Use Case Diagram:** `Flowchart/UseCaseDiagram.jpg`
+* **Workflow Diagram:** `Flowchart/Workflow.jpg`
 
 ## ✅ Testing
 
