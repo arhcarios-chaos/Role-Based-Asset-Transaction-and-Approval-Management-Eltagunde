@@ -161,8 +161,11 @@ This means even a user who bypasses the front end and calls the Supabase API dir
 The system's Entity-Relationship Diagram (ERD), Use Case Diagram, and Workflow Diagram are provided below.
 
 * **Entity-Relationship Diagram (ERD):** `Flowchart/ERD.jpg`
+![Screenshot](Flowchart/ERD.jpg)
 * **Use Case Diagram:** `Flowchart/UseCaseDiagram.jpg`
+![Screenshot](Flowchart/UseCaseDiagram.jpg)
 * **Workflow Diagram:** `Flowchart/Workflow.jpg`
+![Screenshot](Flowchart/Workflow.jpg)
 
 ## ✅ Testing
 
