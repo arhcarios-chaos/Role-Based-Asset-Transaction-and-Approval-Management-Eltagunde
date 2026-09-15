@@ -167,6 +167,10 @@ The system's Entity-Relationship Diagram (ERD), Use Case Diagram, and Workflow D
 * **Workflow Diagram:** `Flowchart/Workflow.jpg`
 ![Screenshot](Flowchart/Workflow.jpg)
 
+## 📝 Audit Log
+
+![Screenshot](AuditLog/Audit_Log.png)
+
 ## ✅ Testing
 
 Follow [`docs/TestPlan.md`](docs/TestPlan.md) (test cases TC-A4-01 through TC-A4-10). Log in as each role in a separate browser profile/incognito window to test role boundaries side-by-side, and check `audit-logs.html` after each approve/reject/release/return to confirm the audit trail.
