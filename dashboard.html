@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Dashboard — Lab Asset System</title>
+<link rel="stylesheet" href="css/style.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+  <div class="topbar">
+    <div class="brand">Lab Asset &amp; Service Management</div>
+    <div class="user-info">
+      <span id="nav-user-name"></span>
+      <span class="role-badge" id="nav-user-role"></span>
+      <button onclick="logout()">Log Out</button>
+    </div>
+  </div>
+  <div class="layout">
+    <nav class="sidebar" id="sidebar-links"></nav>
+    <main class="content">
+      <h1>Dashboard</h1>
+      <div class="card" id="summary-card">Loading...</div>
+    </main>
+  </div>
+
+  <script src="js/supabaseClient.js"></script>
+  <script src="js/auth.js"></script>
+  <script>
+    (async () => {
+      const profile = await requireRole(["administrator", "staff", "requester"]);
+      if (!profile) return;
+
+      const summary = document.getElementById("summary-card");
+      let html = `<h2>Welcome, ${profile.full_name}</h2><p class="muted">Role: ${profile.role}</p>`;
+
+      if (profile.role === "requester") {
+        const { count: pending } = await supabaseClient
+          .from("borrowing_requests")
+          .select("*", { count: "exact", head: true })
+          .eq("requester_id", profile.id)
+          .in("status", ["Pending", "Approved", "Released"]);
+        html += `<p>You have <strong>${pending ?? 0}</strong> active request(s).</p>
+          <p><a href="requests.html">Submit or view your requests →</a></p>`;
+      }
+
+      if (profile.role === "staff") {
+        const { count: toRelease } = await supabaseClient
+          .from("borrowing_requests").select("*", { count: "exact", head: true }).eq("status", "Approved");
+        const { count: outstanding } = await supabaseClient
+          .from("borrowing_requests").select("*", { count: "exact", head: true }).eq("status", "Released");
+        html += `<p><strong>${toRelease ?? 0}</strong> approved request(s) awaiting release.</p>
+          <p><strong>${outstanding ?? 0}</strong> item(s) currently released/borrowed.</p>
+          <p><a href="requests.html">Go to Borrowing Transactions →</a></p>`;
+      }
+
+      if (profile.role === "administrator") {
+        const { count: pendingApproval } = await supabaseClient
+          .from("borrowing_requests").select("*", { count: "exact", head: true }).eq("status", "Pending");
+        const { count: totalEquip } = await supabaseClient
+          .from("equipment").select("*", { count: "exact", head: true });
+        html += `<p><strong>${pendingApproval ?? 0}</strong> request(s) awaiting your approval.</p>
+          <p><strong>${totalEquip ?? 0}</strong> equipment item(s) registered.</p>
+          <p><a href="approvals.html">Go to Approvals →</a> &nbsp;|&nbsp; <a href="audit-logs.html">View Audit Logs →</a></p>`;
+      }
+
+      summary.innerHTML = html;
+    })();
+  </script>
+</body>
+</html>

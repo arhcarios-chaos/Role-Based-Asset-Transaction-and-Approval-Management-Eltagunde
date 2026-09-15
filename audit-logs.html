@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Audit Logs — Lab Asset System</title>
+<link rel="stylesheet" href="css/style.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+  <div class="topbar">
+    <div class="brand">Lab Asset &amp; Service Management</div>
+    <div class="user-info">
+      <span id="nav-user-name"></span>
+      <span class="role-badge" id="nav-user-role"></span>
+      <button onclick="logout()">Log Out</button>
+    </div>
+  </div>
+  <div class="layout">
+    <nav class="sidebar" id="sidebar-links"></nav>
+    <main class="content">
+      <h1>Audit Logs</h1>
+      <p class="muted">Administrator only (BR-A4-10: all sensitive operations are logged here automatically).</p>
+      <div class="card">
+        <table>
+          <thead><tr><th>Time</th><th>User</th><th>Action</th><th>Module</th><th>Record ID</th><th>Description</th></tr></thead>
+          <tbody id="log-body"><tr><td colspan="6">Loading...</td></tr></tbody>
+        </table>
+      </div>
+    </main>
+  </div>
+
+  <script src="js/supabaseClient.js"></script>
+  <script src="js/auth.js"></script>
+  <script>
+    (async () => {
+      const profile = await requireRole(["administrator"]);
+      if (!profile) return;
+
+      const { data, error } = await supabaseClient
+        .from("audit_logs")
+        .select("id, action, module, record_id, description, created_at, profiles(full_name)")
+        .order("created_at", { ascending: false })
+        .limit(200);
+
+      const body = document.getElementById("log-body");
+      if (error) { body.innerHTML = `<tr><td colspan="6">Error: ${error.message}</td></tr>`; return; }
+      if (!data.length) { body.innerHTML = `<tr><td colspan="6">No audit entries yet.</td></tr>`; return; }
+
+      body.innerHTML = data.map(l => `<tr>
+        <td>${new Date(l.created_at).toLocaleString()}</td>
+        <td>${l.profiles ? l.profiles.full_name : "System"}</td>
+        <td><strong>${l.action}</strong></td>
+        <td>${l.module}</td>
+        <td>${l.record_id ?? "-"}</td>
+        <td>${l.description ?? "-"}</td>
+      </tr>`).join("");
+    })();
+  </script>
+</body>
+</html>

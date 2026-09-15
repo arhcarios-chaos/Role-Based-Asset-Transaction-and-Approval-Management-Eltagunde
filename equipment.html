@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Equipment — Lab Asset System</title>
+<link rel="stylesheet" href="css/style.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+  <div class="topbar">
+    <div class="brand">Lab Asset &amp; Service Management</div>
+    <div class="user-info">
+      <span id="nav-user-name"></span>
+      <span class="role-badge" id="nav-user-role"></span>
+      <button onclick="logout()">Log Out</button>
+    </div>
+  </div>
+  <div class="layout">
+    <nav class="sidebar" id="sidebar-links"></nav>
+    <main class="content">
+      <h1>Equipment</h1>
+      <div id="alert-area"></div>
+
+      <div class="card" id="add-equipment-card" style="display:none;">
+        <h2>Add Equipment</h2>
+        <form id="add-form">
+          <label>Code</label><input type="text" id="eq-code" required>
+          <label>Name</label><input type="text" id="eq-name" required>
+          <label>Category</label><input type="text" id="eq-category">
+          <button type="submit" class="btn">Add Equipment</button>
+        </form>
+      </div>
+
+      <div class="card">
+        <h2>Inventory</h2>
+        <table>
+          <thead><tr><th>Code</th><th>Name</th><th>Category</th><th>Status</th><th></th></tr></thead>
+          <tbody id="equipment-body"><tr><td colspan="5">Loading...</td></tr></tbody>
+        </table>
+      </div>
+    </main>
+  </div>
+
+  <script src="js/supabaseClient.js"></script>
+  <script src="js/auth.js"></script>
+  <script>
+    let currentProfile = null;
+    let allEquipment = [];
+    let editingId = null;
+
+    function showAlert(msg, type) {
+      document.getElementById("alert-area").innerHTML = `<div class="alert alert-${type}">${msg}</div>`;
+    }
+
+    async function loadEquipment() {
+      const { data, error } = await supabaseClient
+        .from("equipment").select("*").order("code");
+      const body = document.getElementById("equipment-body");
+      if (error) { body.innerHTML = `<tr><td colspan="5">Error loading equipment</td></tr>`; return; }
+      allEquipment = data;
+      renderEquipment();
+    }
+
+    function renderEquipment() {
+      const body = document.getElementById("equipment-body");
+      const canManage = currentProfile.role === "staff" || currentProfile.role === "administrator";
+      const canDelete = currentProfile.role === "administrator";
+      const canRequest = currentProfile.role === "requester" || currentProfile.role === "staff";
+
+      body.innerHTML = allEquipment.map(eq => {
+        // ---- Row is in edit mode (Staff/Admin only) — satisfies "update permitted records" ----
+        if (editingId === eq.id) {
+          return `<tr>
+            <td><input value="${eq.code}" id="edit-code-${eq.id}"></td>
+            <td><input value="${eq.name}" id="edit-name-${eq.id}"></td>
+            <td><input value="${eq.category ?? ""}" id="edit-category-${eq.id}"></td>
+            <td>
+              <select id="edit-status-${eq.id}">
+                ${["Available","Borrowed","Maintenance","Damaged"].map(s =>
+                  `<option value="${s}" ${s === eq.status ? "selected" : ""}>${s}</option>`).join("")}
+              </select>
+            </td>
+            <td>
+              <button class="btn small" onclick="saveEdit(${eq.id})">Save</button>
+              <button class="btn small" style="background:#7f8c8d;" onclick="cancelEdit()">Cancel</button>
+            </td>
+          </tr>`;
+        }
+
+        let requestBtn = "";
+        if (canRequest && eq.status === "Available") {
+          requestBtn = `<button class="btn small" onclick="requestEquipment(${eq.id}, '${eq.name.replace(/'/g,"\\'")}')">Request</button>`;
+        }
+        let maintenanceBtn = "";
+        if (canManage && eq.status !== "Maintenance") {
+          maintenanceBtn = `<button class="btn small" style="background:#d68910;" onclick="requestMaintenance(${eq.id})">Send to Maintenance</button>`;
+        }
+        let editBtn = "";
+        if (canManage) {
+          editBtn = `<button class="btn small" style="background:#555;" onclick="startEdit(${eq.id})">Edit</button>`;
+        }
+        let deleteBtn = "";
+        if (canDelete) {
+          deleteBtn = `<button class="btn small reject" onclick="deleteEquipment(${eq.id}, '${eq.name.replace(/'/g,"\\'")}')">Delete</button>`;
+        }
+
+        return `<tr>
+          <td>${eq.code}</td><td>${eq.name}</td><td>${eq.category ?? "-"}</td>
+          <td><span class="status-pill status-${eq.status}">${eq.status}</span></td>
+          <td>${requestBtn} ${maintenanceBtn} ${editBtn} ${deleteBtn}</td>
+        </tr>`;
+      }).join("");
+    }
+
+    function startEdit(id) { editingId = id; renderEquipment(); }
+    function cancelEdit() { editingId = null; renderEquipment(); }
+
+    async function saveEdit(id) {
+      const code = document.getElementById(`edit-code-${id}`).value;
+      const name = document.getElementById(`edit-name-${id}`).value;
+      const category = document.getElementById(`edit-category-${id}`).value;
+      const status = document.getElementById(`edit-status-${id}`).value;
+
+      const { error } = await supabaseClient
+        .from("equipment")
+        .update({ code, name, category, status, updated_at: new Date().toISOString() })
+        .eq("id", id);
+
+      showAlert(error ? error.message : "Equipment record updated.", error ? "error" : "success");
+      editingId = null;
+      loadEquipment();
+    }
+
+    async function deleteEquipment(id, name) {
+      if (!confirm(`Delete equipment "${name}"? This cannot be undone.`)) return;
+      const { error } = await supabaseClient.from("equipment").delete().eq("id", id);
+      // If a request/policy blocks it, error will be set (e.g. non-admin somehow reaching this, or FK constraint).
+      showAlert(error ? error.message : "Equipment deleted.", error ? "error" : "success");
+      loadEquipment();
+    }
+
+    async function requestEquipment(equipmentId, name) {
+      const purpose = prompt(`Purpose for borrowing "${name}":`);
+      if (!purpose) return;
+      const { error } = await supabaseClient.rpc("submit_borrowing_request", {
+        p_equipment_id: equipmentId, p_purpose: purpose, p_due_date: null
+      });
+      showAlert(error ? error.message : "Request submitted (Pending).", error ? "error" : "success");
+      loadEquipment();
+    }
+
+    async function requestMaintenance(equipmentId) {
+      const description = prompt("Describe the issue:");
+      if (!description) return;
+      const { error } = await supabaseClient.rpc("submit_maintenance_request", {
+        p_equipment_id: equipmentId, p_description: description
+      });
+      showAlert(error ? error.message : "Maintenance request submitted.", error ? "error" : "success");
+      loadEquipment();
+    }
+
+    document.getElementById("add-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const code = document.getElementById("eq-code").value;
+      const name = document.getElementById("eq-name").value;
+      const category = document.getElementById("eq-category").value;
+      const { error } = await supabaseClient.from("equipment").insert({ code, name, category });
+      showAlert(error ? error.message : "Equipment added.", error ? "error" : "success");
+      e.target.reset();
+      loadEquipment();
+    });
+
+    (async () => {
+      currentProfile = await requireRole(["administrator", "staff", "requester"]);
+      if (!currentProfile) return;
+      if (currentProfile.role === "staff" || currentProfile.role === "administrator") {
+        document.getElementById("add-equipment-card").style.display = "block";
+      }
+      loadEquipment();
+    })();
+  </script>
+</body>
+</html>

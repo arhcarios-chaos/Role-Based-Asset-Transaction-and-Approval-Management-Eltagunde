@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Login — Laboratory Asset Management</title>
+<link rel="stylesheet" href="css/style.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+  <div class="login-wrap">
+    <div class="login-box">
+      <h1>Lab Asset System</h1>
+      <p class="muted" style="text-align:center;">Role-Based Asset Transaction &amp; Approval Management</p>
+      <div id="alert-area"></div>
+
+      <form id="login-form">
+        <label>Email</label>
+        <input type="email" id="email" required>
+        <label>Password</label>
+        <input type="password" id="password" required>
+        <button type="submit" class="btn" style="width:100%;">Log In</button>
+      </form>
+
+      <hr>
+      <p class="muted">New requester account?</p>
+      <form id="signup-form">
+        <label>Full Name</label>
+        <input type="text" id="signup-name" required>
+        <label>Email</label>
+        <input type="email" id="signup-email" required>
+        <label>Password</label>
+        <input type="password" id="signup-password" required minlength="6">
+        <button type="submit" class="btn" style="width:100%; background:#555;">Sign Up as Requester</button>
+      </form>
+      <p class="muted" style="margin-top:0.75rem;">
+        New sign-ups default to the <strong>Requester</strong> role.
+        An Administrator must promote accounts to Staff/Administrator (see README).
+      </p>
+    </div>
+  </div>
+
+  <script src="js/supabaseClient.js"></script>
+  <script>
+    const alertArea = document.getElementById("alert-area");
+    function showAlert(msg, type = "error") {
+      alertArea.innerHTML = `<div class="alert alert-${type}">${msg}</div>`;
+    }
+
+    document.getElementById("login-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const email = document.getElementById("email").value;
+      const password = document.getElementById("password").value;
+      const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
+      if (error) return showAlert(error.message);
+      window.location.href = "dashboard.html";
+    });
+
+    document.getElementById("signup-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const full_name = document.getElementById("signup-name").value;
+      const email = document.getElementById("signup-email").value;
+      const password = document.getElementById("signup-password").value;
+      const { error } = await supabaseClient.auth.signUp({
+        email, password,
+        options: { data: { full_name } }
+      });
+      if (error) return showAlert(error.message);
+      showAlert("Account created. Check your email to confirm, then log in.", "success");
+    });
+
+    // If already logged in, skip straight to dashboard.
+    (async () => {
+      const { data: { session } } = await supabaseClient.auth.getSession();
+      if (session) window.location.href = "dashboard.html";
+    })();
+  </script>
+</body>
+</html>

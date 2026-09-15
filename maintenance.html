@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Maintenance — Lab Asset System</title>
+<link rel="stylesheet" href="css/style.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+  <div class="topbar">
+    <div class="brand">Lab Asset &amp; Service Management</div>
+    <div class="user-info">
+      <span id="nav-user-name"></span>
+      <span class="role-badge" id="nav-user-role"></span>
+      <button onclick="logout()">Log Out</button>
+    </div>
+  </div>
+  <div class="layout">
+    <nav class="sidebar" id="sidebar-links"></nav>
+    <main class="content">
+      <h1>Maintenance Requests</h1>
+      <p class="muted">Equipment under Maintenance cannot be borrowed (BR-A4-09).</p>
+      <div id="alert-area"></div>
+      <div class="card">
+        <table>
+          <thead><tr><th>ID</th><th>Equipment</th><th>Description</th><th>Status</th><th>Requested</th><th></th></tr></thead>
+          <tbody id="maint-body"><tr><td colspan="6">Loading...</td></tr></tbody>
+        </table>
+      </div>
+    </main>
+  </div>
+
+  <script src="js/supabaseClient.js"></script>
+  <script src="js/auth.js"></script>
+  <script>
+    function showAlert(msg, type) {
+      document.getElementById("alert-area").innerHTML = `<div class="alert alert-${type}">${msg}</div>`;
+    }
+
+    async function loadMaintenance() {
+      const { data, error } = await supabaseClient
+        .from("maintenance_requests")
+        .select("id, description, status, created_at, equipment(name, code)")
+        .order("created_at", { ascending: false });
+
+      const body = document.getElementById("maint-body");
+      if (error) { body.innerHTML = `<tr><td colspan="6">Error: ${error.message}</td></tr>`; return; }
+      if (!data.length) { body.innerHTML = `<tr><td colspan="6">No maintenance requests.</td></tr>`; return; }
+
+      body.innerHTML = data.map(m => `<tr>
+        <td>#${m.id}</td>
+        <td>${m.equipment ? m.equipment.name + " (" + m.equipment.code + ")" : "-"}</td>
+        <td>${m.description}</td>
+        <td><span class="status-pill status-Maintenance">${m.status}</span></td>
+        <td>${new Date(m.created_at).toLocaleString()}</td>
+        <td>${m.status !== "Resolved" ? `<button class="btn small" onclick="resolve(${m.id})">Mark Resolved</button>` : ""}</td>
+      </tr>`).join("");
+    }
+
+    async function resolve(id) {
+      const { error } = await supabaseClient.rpc("resolve_maintenance", { p_maintenance_id: id });
+      showAlert(error ? error.message : `Maintenance #${id} resolved. Equipment set to Available.`, error ? "error" : "success");
+      loadMaintenance();
+    }
+
+    (async () => {
+      const profile = await requireRole(["staff", "administrator"]);
+      if (!profile) return;
+      loadMaintenance();
+    })();
+  </script>
+</body>
+</html>

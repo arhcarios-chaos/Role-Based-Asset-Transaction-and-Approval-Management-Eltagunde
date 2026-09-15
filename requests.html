@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Borrowing Requests — Lab Asset System</title>
+<link rel="stylesheet" href="css/style.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+  <div class="topbar">
+    <div class="brand">Lab Asset &amp; Service Management</div>
+    <div class="user-info">
+      <span id="nav-user-name"></span>
+      <span class="role-badge" id="nav-user-role"></span>
+      <button onclick="logout()">Log Out</button>
+    </div>
+  </div>
+  <div class="layout">
+    <nav class="sidebar" id="sidebar-links"></nav>
+    <main class="content">
+      <h1 id="page-title">Requests</h1>
+      <div id="alert-area"></div>
+      <div class="card">
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th><th>Equipment</th><th>Requester</th><th>Purpose</th>
+              <th>Status</th><th>Requested</th><th></th>
+            </tr>
+          </thead>
+          <tbody id="requests-body"><tr><td colspan="7">Loading...</td></tr></tbody>
+        </table>
+      </div>
+    </main>
+  </div>
+
+  <script src="js/supabaseClient.js"></script>
+  <script src="js/auth.js"></script>
+  <script>
+    let currentProfile = null;
+
+    function showAlert(msg, type) {
+      document.getElementById("alert-area").innerHTML = `<div class="alert alert-${type}">${msg}</div>`;
+    }
+
+    async function loadRequests() {
+      // BR-A4-01/06 support: refresh overdue flags each time this page loads.
+      await supabaseClient.rpc("mark_overdue");
+
+      let query = supabaseClient
+        .from("borrowing_requests")
+        .select("id, purpose, status, requested_at, equipment_id, requester_id, equipment(name, code), profiles!borrowing_requests_requester_id_fkey(full_name)")
+        .order("requested_at", { ascending: false });
+
+      if (currentProfile.role === "requester") {
+        query = query.eq("requester_id", currentProfile.id);
+      }
+
+      const { data, error } = await query;
+      const body = document.getElementById("requests-body");
+      if (error) { body.innerHTML = `<tr><td colspan="7">Error: ${error.message}</td></tr>`; return; }
+      if (!data.length) { body.innerHTML = `<tr><td colspan="7">No requests found.</td></tr>`; return; }
+
+      body.innerHTML = data.map(r => {
+        let actions = "";
+        if (currentProfile.role === "staff" || currentProfile.role === "administrator") {
+          if (r.status === "Approved") {
+            actions += `<button class="btn small" onclick="releaseReq(${r.id})">Release</button>`;
+          }
+          if (r.status === "Released" || r.status === "Overdue") {
+            actions += `<button class="btn small" onclick="returnReq(${r.id}, false)">Return (OK)</button>
+                        <button class="btn small reject" onclick="returnReq(${r.id}, true)">Return (Damaged)</button>`;
+          }
+          if (r.status === "Returned") {
+            actions += `<button class="btn small" onclick="closeReq(${r.id})">Close</button>`;
+          }
+        }
+        return `<tr>
+          <td>#${r.id}</td>
+          <td>${r.equipment ? r.equipment.name + " (" + r.equipment.code + ")" : r.equipment_id}</td>
+          <td>${r.profiles ? r.profiles.full_name : "-"}</td>
+          <td>${r.purpose}</td>
+          <td><span class="status-pill status-${r.status}">${r.status}</span></td>
+          <td>${new Date(r.requested_at).toLocaleString()}</td>
+          <td>${actions}</td>
+        </tr>`;
+      }).join("");
+    }
+
+    async function releaseReq(id) {
+      const { error } = await supabaseClient.rpc("release_equipment", { p_request_id: id });
+      showAlert(error ? error.message : `Request #${id} released. Equipment marked Borrowed.`, error ? "error" : "success");
+      loadRequests();
+    }
+
+    async function returnReq(id, damaged) {
+      const { error } = await supabaseClient.rpc("return_equipment", { p_request_id: id, p_is_damaged: damaged });
+      showAlert(error ? error.message : `Request #${id} marked Returned.`, error ? "error" : "success");
+      loadRequests();
+    }
+
+    async function closeReq(id) {
+      const { error } = await supabaseClient.rpc("close_request", { p_request_id: id });
+      showAlert(error ? error.message : `Request #${id} closed.`, error ? "error" : "success");
+      loadRequests();
+    }
+
+    (async () => {
+      currentProfile = await requireRole(["administrator", "staff", "requester"]);
+      if (!currentProfile) return;
+      document.getElementById("page-title").textContent =
+        currentProfile.role === "requester" ? "My Requests" : "Borrowing Transactions";
+      loadRequests();
+    })();
+  </script>
+</body>
+</html>

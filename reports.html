@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Reports — Lab Asset System</title>
+<link rel="stylesheet" href="css/style.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  .bar-row { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.6rem; }
+  .bar-label { width: 110px; font-size: 0.85rem; flex-shrink: 0; }
+  .bar-track { flex: 1; background: #eef1f4; border-radius: 6px; height: 20px; overflow: hidden; }
+  .bar-fill { height: 100%; border-radius: 6px; }
+  .bar-count { width: 34px; text-align: right; font-size: 0.85rem; font-weight: 600; flex-shrink: 0; }
+  .stat-grid { display: flex; gap: 1rem; flex-wrap: wrap; }
+  .stat-box {
+    flex: 1; min-width: 150px; background: #f7f9fb; border: 1px solid var(--border);
+    border-radius: 8px; padding: 1rem; text-align: center;
+  }
+  .stat-box .num { font-size: 1.8rem; font-weight: 700; color: var(--primary); }
+  .stat-box .label { font-size: 0.8rem; color: var(--muted); }
+</style>
+</head>
+<body>
+  <div class="topbar">
+    <div class="brand">Lab Asset &amp; Service Management</div>
+    <div class="user-info">
+      <span id="nav-user-name"></span>
+      <span class="role-badge" id="nav-user-role"></span>
+      <button onclick="logout()">Log Out</button>
+    </div>
+  </div>
+  <div class="layout">
+    <nav class="sidebar" id="sidebar-links"></nav>
+    <main class="content">
+      <h1>Reports</h1>
+      <p class="muted">Administrator only.</p>
+
+      <div class="card">
+        <h2>Overview</h2>
+        <div class="stat-grid" id="stat-grid"><p>Loading...</p></div>
+      </div>
+
+      <div class="card">
+        <h2>Equipment by Status</h2>
+        <div id="equipment-chart"></div>
+      </div>
+
+      <div class="card">
+        <h2>Borrowing Requests by Status</h2>
+        <div id="request-chart"></div>
+      </div>
+
+      <div class="card">
+        <h2>Currently Overdue</h2>
+        <table>
+          <thead><tr><th>Request ID</th><th>Equipment</th><th>Requester</th><th>Due Date</th></tr></thead>
+          <tbody id="overdue-body"><tr><td colspan="4">Loading...</td></tr></tbody>
+        </table>
+      </div>
+
+      <div class="card">
+        <h2>Most-Requested Equipment</h2>
+        <table>
+          <thead><tr><th>Equipment</th><th>Total Requests</th></tr></thead>
+          <tbody id="top-equipment-body"><tr><td colspan="2">Loading...</td></tr></tbody>
+        </table>
+      </div>
+    </main>
+  </div>
+
+  <script src="js/supabaseClient.js"></script>
+  <script src="js/auth.js"></script>
+  <script>
+    const STATUS_COLORS = {
+      Available: "#2f9e6f", Borrowed: "#2f80c1", Maintenance: "#d68910", Damaged: "#c0392b",
+      Pending: "#d68910", Approved: "#2f80c1", Rejected: "#c0392b", Released: "#6c5ce7",
+      Returned: "#16a085", Overdue: "#e74c3c", Closed: "#7f8c8d"
+    };
+
+    function renderBarChart(containerId, counts) {
+      const max = Math.max(1, ...Object.values(counts));
+      const container = document.getElementById(containerId);
+      container.innerHTML = Object.entries(counts).map(([label, count]) => `
+        <div class="bar-row">
+          <div class="bar-label">${label}</div>
+          <div class="bar-track">
+            <div class="bar-fill" style="width:${(count / max) * 100}%; background:${STATUS_COLORS[label] || "#888"};"></div>
+          </div>
+          <div class="bar-count">${count}</div>
+        </div>`).join("");
+    }
+
+    async function loadReports() {
+      // ---- Equipment by status ----
+      const { data: equipment } = await supabaseClient.from("equipment").select("status");
+      const equipmentCounts = { Available: 0, Borrowed: 0, Maintenance: 0, Damaged: 0 };
+      (equipment || []).forEach(e => { equipmentCounts[e.status] = (equipmentCounts[e.status] || 0) + 1; });
+      renderBarChart("equipment-chart", equipmentCounts);
+
+      // ---- Requests by status ----
+      const { data: requests } = await supabaseClient.from("borrowing_requests").select("status");
+      const requestCounts = { Pending: 0, Approved: 0, Rejected: 0, Released: 0, Returned: 0, Overdue: 0, Closed: 0 };
+      (requests || []).forEach(r => { requestCounts[r.status] = (requestCounts[r.status] || 0) + 1; });
+      renderBarChart("request-chart", requestCounts);
+
+      // ---- Overview stat cards ----
+      const totalEquipment = equipment ? equipment.length : 0;
+      const totalRequests = requests ? requests.length : 0;
+      const activeBorrows = requestCounts.Released + requestCounts.Overdue;
+      const pendingApproval = requestCounts.Pending;
+
+      document.getElementById("stat-grid").innerHTML = `
+        <div class="stat-box"><div class="num">${totalEquipment}</div><div class="label">Total Equipment</div></div>
+        <div class="stat-box"><div class="num">${totalRequests}</div><div class="label">Total Requests</div></div>
+        <div class="stat-box"><div class="num">${activeBorrows}</div><div class="label">Currently Borrowed</div></div>
+        <div class="stat-box"><div class="num">${pendingApproval}</div><div class="label">Awaiting Approval</div></div>
+      `;
+
+      // ---- Overdue table ----
+      const { data: overdue } = await supabaseClient
+        .from("borrowing_requests")
+        .select("id, due_date, equipment(name, code), profiles!borrowing_requests_requester_id_fkey(full_name)")
+        .eq("status", "Overdue");
+      const overdueBody = document.getElementById("overdue-body");
+      if (!overdue || !overdue.length) {
+        overdueBody.innerHTML = `<tr><td colspan="4">No overdue items.</td></tr>`;
+      } else {
+        overdueBody.innerHTML = overdue.map(r => `<tr>
+          <td>#${r.id}</td>
+          <td>${r.equipment ? r.equipment.name + " (" + r.equipment.code + ")" : "-"}</td>
+          <td>${r.profiles ? r.profiles.full_name : "-"}</td>
+          <td>${r.due_date ?? "-"}</td>
+        </tr>`).join("");
+      }
+
+      // ---- Most-requested equipment ----
+      const { data: allRequests } = await supabaseClient
+        .from("borrowing_requests").select("equipment(name, code)");
+      const tally = {};
+      (allRequests || []).forEach(r => {
+        if (!r.equipment) return;
+        const key = `${r.equipment.name} (${r.equipment.code})`;
+        tally[key] = (tally[key] || 0) + 1;
+      });
+      const sorted = Object.entries(tally).sort((a, b) => b[1] - a[1]).slice(0, 10);
+      const topBody = document.getElementById("top-equipment-body");
+      topBody.innerHTML = sorted.length
+        ? sorted.map(([name, count]) => `<tr><td>${name}</td><td>${count}</td></tr>`).join("")
+        : `<tr><td colspan="2">No requests recorded yet.</td></tr>`;
+    }
+
+    (async () => {
+      await supabaseClient.rpc("mark_overdue");
+      const profile = await requireRole(["administrator"]);
+      if (!profile) return;
+      loadReports();
+    })();
+  </script>
+</body>
+</html>
