@@ -1,0 +1,29 @@
+stateDiagram-v2
+    [*] --> Pending: Requester/Staff submits request\n(BR-A4-01, BR-A4-09)
+
+    Pending --> Approved: Administrator approves\n(BR-A4-02, BR-A4-03)
+    Pending --> Rejected: Administrator rejects\n(BR-A4-03)
+
+    Approved --> Released: Staff/Admin releases\n(BR-A4-04, BR-A4-05)
+    Rejected --> [*]: Cannot be released\n(BR-A4-07)
+
+    Released --> Overdue: due_date passed
+    Released --> Returned: Staff/Admin processes return\n(BR-A4-06, BR-A4-08)
+    Overdue --> Returned: Staff/Admin processes return\n(BR-A4-06, BR-A4-08)
+
+    Returned --> Closed: Staff/Admin closes transaction
+    Closed --> [*]
+
+    note right of Approved
+        Equipment status unaffected
+        until Released
+    end note
+
+    note right of Released
+        Equipment status -> Borrowed
+    end note
+
+    note right of Returned
+        Equipment status -> Available
+        (or Damaged if flagged)
+    end note

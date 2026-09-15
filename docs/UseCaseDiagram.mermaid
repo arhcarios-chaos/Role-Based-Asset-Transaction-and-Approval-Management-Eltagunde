@@ -1,0 +1,52 @@
+flowchart LR
+    subgraph Actors
+        A[Administrator]
+        S[Laboratory Staff]
+        R[Requester / Viewer]
+    end
+
+    subgraph "Lab Asset & Service Management System"
+        UC1((Login / Logout))
+        UC2((View Equipment))
+        UC3((Submit Borrowing Request))
+        UC4((View Own Request Status/History))
+        UC5((Process Return))
+        UC6((Submit Maintenance Request))
+        UC7((Update Permitted Records))
+        UC8((Manage Users))
+        UC9((Manage Equipment))
+        UC10((Approve/Reject Requests))
+        UC11((Manage Maintenance))
+        UC12((View Reports))
+        UC13((View Audit Logs))
+        UC14((Release Equipment))
+    end
+
+    R --> UC1
+    R --> UC2
+    R --> UC3
+    R --> UC4
+
+    S --> UC1
+    S --> UC2
+    S --> UC3
+    S --> UC5
+    S --> UC6
+    S --> UC7
+    S --> UC14
+    S --> UC11
+
+    A --> UC1
+    A --> UC2
+    A --> UC8
+    A --> UC9
+    A --> UC10
+    A --> UC11
+    A --> UC12
+    A --> UC13
+    A --> UC14
+    A --> UC5
+
+    UC10 -.include.-> UC13
+    UC14 -.include.-> UC13
+    UC5 -.include.-> UC13

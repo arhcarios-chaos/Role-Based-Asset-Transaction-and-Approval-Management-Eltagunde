@@ -1,0 +1,60 @@
+erDiagram
+    PROFILES ||--o{ BORROWING_REQUESTS : "requests as requester"
+    PROFILES ||--o{ BORROWING_REQUESTS : "approves as admin"
+    PROFILES ||--o{ MAINTENANCE_REQUESTS : "submits"
+    PROFILES ||--o{ AUDIT_LOGS : "performs"
+    EQUIPMENT ||--o{ BORROWING_REQUESTS : "is requested in"
+    EQUIPMENT ||--o{ MAINTENANCE_REQUESTS : "is subject of"
+
+    PROFILES {
+        uuid id PK
+        text full_name
+        user_role role "administrator | staff | requester"
+        timestamptz created_at
+    }
+
+    EQUIPMENT {
+        bigint id PK
+        text code UK
+        text name
+        text category
+        equipment_status status "Available | Borrowed | Maintenance | Damaged"
+        timestamptz created_at
+        timestamptz updated_at
+    }
+
+    BORROWING_REQUESTS {
+        bigint id PK
+        uuid requester_id FK
+        bigint equipment_id FK
+        text purpose
+        request_status status "Pending..Closed"
+        timestamptz requested_at
+        date due_date
+        uuid approved_by FK
+        timestamptz approved_at
+        timestamptz released_at
+        timestamptz returned_at
+        timestamptz closed_at
+        text notes
+    }
+
+    MAINTENANCE_REQUESTS {
+        bigint id PK
+        bigint equipment_id FK
+        uuid requested_by FK
+        text description
+        maintenance_status status
+        timestamptz created_at
+        timestamptz resolved_at
+    }
+
+    AUDIT_LOGS {
+        bigint id PK
+        uuid user_id FK
+        text action
+        text module
+        text record_id
+        text description
+        timestamptz created_at
+    }
