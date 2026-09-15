@@ -1,8 +1,7 @@
 # Functional Test Plan &amp; Results
 
-Fill in **Actual Result**, **Status**, and add a screenshot filename for each
-test case as you run it against your deployed system, then include this file
-(with results) in your submission.
+Fill in **Actual Result** and **Status** for each test case as you run it against your deployed system. Include the completed test cases with the results in your submission.
+
 
 | Test ID | Scenario | Steps | Expected Result | Actual Result | Status (Pass/Fail) |
 |---|---|---|---|---|---|
