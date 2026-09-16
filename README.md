@@ -169,7 +169,7 @@ The system's Entity-Relationship Diagram (ERD), Use Case Diagram, and Workflow D
 
 ## 📝 Audit Log
 
-![Screenshot](AuditLog/Audit_Log.png)
+![Screenshot](Audit_Log/Audit_Log.png)
 
 ## ✅ Testing
 
